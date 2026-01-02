@@ -97,5 +97,4 @@ python manage.py runserver
 *   **Navigator Mode**: Flip the toggle at the top right. Point your phone, and it will list objects around you.
 *   **Text Reading**: Just show a document and ask "Read this text".
 
-## 📄 License
-MIT
+
