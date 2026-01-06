@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <!-- ... other keys ... -->
+
+    <!-- Vision AI Permissions -->
+    <key>NSCameraUsageDescription</key>
+    <string>We need camera access to analyze objects around you.</string>
+    <key>NSMicrophoneUsageDescription</key>
+    <string>We need microphone access to hear your voice commands.</string>
+    <key>NSSpeechRecognitionUsageDescription</key>
+    <string>We need speech recognition to process your commands.</string>
+
+    <!-- ... other keys ... -->
+</dict>
+</plist>

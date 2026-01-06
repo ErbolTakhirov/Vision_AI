@@ -113,10 +113,30 @@ def detect_objects_local(image_bytes):
     model = LocalBrain.get_yolo_model()
     if not model: return []
     try:
-        nparr = np.frombuffer(image_bytes, np.uint8)
         import cv2 # Local import to avoid top-level fail if missing
+        nparr = np.frombuffer(image_bytes, np.uint8)
         img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
-        results = model.predict(img, conf=0.5, verbose=False)
+        
+        if img is None:
+            return []
+        
+        # Preprocessing для улучшения распознавания
+        # 1. Resize если изображение слишком большое
+        max_dimension = 1280
+        h, w = img.shape[:2]
+        if max(h, w) > max_dimension:
+            scale = max_dimension / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        
+        # 2. Улучшение контраста (CLAHE)
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        l = clahe.apply(l)
+        img = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+        
+        # Детекция с оптимальными параметрами
+        results = model.predict(img, conf=0.3, iou=0.45, verbose=False)
         detected = []
         for r in results:
             for c in r.boxes.cls:

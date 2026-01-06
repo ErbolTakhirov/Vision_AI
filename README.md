@@ -97,4 +97,32 @@ python manage.py runserver
 *   **Navigator Mode**: Flip the toggle at the top right. Point your phone, and it will list objects around you.
 *   **Text Reading**: Just show a document and ask "Read this text".
 
+## 📱 Native Mobile App (Flutter)
+
+The project includes a native Flutter application (`vision_mobile`) for better performance and background capabilities.
+
+### Setup
+
+1.  **Navigate to the mobile directory**:
+    ```bash
+    cd vision_mobile
+    ```
+2.  **Create `lib/secrets.dart`**:
+    Since API keys are not committed to git, you must create this file manually:
+    ```dart
+    class Secrets {
+      // Get a free key from https://openrouteservice.org/
+      static const String openRouteServiceApiKey = 'YOUR_ORS_API_KEY';
+    }
+    ```
+3.  **Install Dependencies**:
+    ```bash
+    flutter pub get
+    ```
+4.  **Run**:
+    ```bash
+    flutter run
+    ```
+
+
 

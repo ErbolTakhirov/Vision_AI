@@ -1,0 +1,15 @@
+{
+  "appTitle": "Vision AI",
+  "startListening": "Сүйлөө үчүн басыңыз",
+  "stopListening": "Токтотуу",
+  "processing": "Ойлонуп жатам...",
+  "navigatorMode": "Навигатор режими",
+  "chatMode": "Чат режими",
+  "settings": "Жөндөөлөр",
+  "serverUrl": "Сервер дареги",
+  "save": "Сактоо",
+  "error": "Ката",
+  "welcome": "Салам! Мен Vision AI жардамчысымын.",
+  "cameraPermission": "Камерага уруксат керек",
+  "micPermission": "Микрофонго уруксат керек"
+}

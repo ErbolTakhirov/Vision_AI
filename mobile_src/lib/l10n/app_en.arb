@@ -1,0 +1,15 @@
+{
+  "appTitle": "Vision AI",
+  "startListening": "Tap to Speak",
+  "stopListening": "Stop",
+  "processing": "Thinking...",
+  "navigatorMode": "Navigator Mode",
+  "chatMode": "Chat Mode",
+  "settings": "Settings",
+  "serverUrl": "Server URL",
+  "save": "Save",
+  "error": "Error",
+  "welcome": "Hello! I am your Vision AI.",
+  "cameraPermission": "Camera permission is required",
+  "micPermission": "Microphone permission is required"
+}

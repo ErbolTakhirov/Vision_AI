@@ -1,29 +1,38 @@
+# General
+.DS_Store
+.vscode/
+.idea/
+*.log
 
-# Python
+# Python / Django
+venv/
+env/
 __pycache__/
 *.py[cod]
 *$py.class
-
-# Django
-*.log
-local_settings.py
 db.sqlite3
 media/
-staticfiles/
-
-# Environment
+static/
 .env
-.venv
-venv/
-env/
 
-# IDE
-.vscode/
-.idea/
+# Flutter
+vision_mobile/.dart_tool/
+vision_mobile/.idea/
+vision_mobile/.pub/
+vision_mobile/build/
+vision_mobile/.flutter-plugins
+vision_mobile/.flutter-plugins-dependencies
+vision_mobile/.packages
+vision_mobile/ios/Flutter/Generated.xcconfig
+vision_mobile/ios/Flutter/flutter_export_environment.sh
+vision_mobile/android/local.properties
+vision_mobile/lib/secrets.dart
 
-# VSCode/Editor files
-*.swp
-*.swo
+# Node / JS (if any)
+node_modules/
 
-# Project specific
-*.ngrok.io
+# Secrets & Keys
+*.key
+*.pem
+secrets.dart
+.env.local

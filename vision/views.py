@@ -109,8 +109,23 @@ class DetectAPIView(View):
         if img is None:
             return JsonResponse({'message': 'Ошибка обработки изображения'}, status=400)
 
-        # Детекция (confidence ~0.4 как в ТЗ)
-        results = model.predict(img, conf=0.4)
+        # Preprocessing для улучшения распознавания
+        # 1. Resize если изображение слишком большое (оптимизация)
+        max_dimension = 1280
+        h, w = img.shape[:2]
+        if max(h, w) > max_dimension:
+            scale = max_dimension / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        
+        # 2. Улучшение контраста (CLAHE)
+        lab = cv2.cvtColor(img, cv2.COLOR_BGR2LAB)
+        l, a, b = cv2.split(lab)
+        clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8,8))
+        l = clahe.apply(l)
+        img = cv2.cvtColor(cv2.merge([l, a, b]), cv2.COLOR_LAB2BGR)
+
+        # Детекция (понижаем confidence для лучшего обнаружения)
+        results = model.predict(img, conf=0.3, iou=0.45)
         
         detected_objects = []
         for result in results:
@@ -221,3 +236,119 @@ def index(request):
     from django.shortcuts import render
     return render(request, 'index.html')
 
+
+@method_decorator(csrf_exempt, name='dispatch')
+class NavigationView(View):
+    """
+    Endpoint для навигации.
+    Принимает голосовой запрос типа "как дойти до Турусбекова 109"
+    и возвращает инструкции для навигации.
+    """
+    async def post(self, request, *args, **kwargs):
+        audio_file = request.FILES.get('audio')
+        text_input = request.POST.get('text', '')
+        user_id = request.POST.get('user_id', 'anonymous')
+        current_lat = request.POST.get('current_lat')
+        current_lon = request.POST.get('current_lon')
+        
+        # Получаем пользователя
+        user_tuple = await sync_to_async(VisionUser.objects.get_or_create)(telegram_id=user_id)
+        user = user_tuple[0]
+        
+        # Обработка аудио
+        if audio_file:
+            transcript = await sync_to_async(speech_to_text)(audio_file)
+            if transcript:
+                text_input = f"{text_input} {transcript}".strip()
+        
+        if not text_input:
+            return JsonResponse({'error': 'No input provided'}, status=400)
+        
+        # Используем AI для извлечения адреса из запроса
+        destination = await self._extract_destination(text_input)
+        
+        if not destination:
+            response_text = "Извините, я не смог определить адрес назначения. Попробуйте сказать, например: 'Как дойти до улицы Турусбекова, дом 109'"
+            audio_content = await text_to_speech_async(response_text)
+            audio_b64 = base64.b64encode(audio_content).decode('utf-8') if audio_content else None
+            return JsonResponse({
+                'message': response_text,
+                'audio': audio_b64,
+                'destination': None
+            })
+        
+        # Возвращаем адрес для построения маршрута на клиенте
+        # Клиент использует NavigationService для построения маршрута
+        response_text = f"Строю маршрут до {destination}. Подождите..."
+        audio_content = await text_to_speech_async(response_text)
+        audio_b64 = base64.b64encode(audio_content).decode('utf-8') if audio_content else None
+        
+        return JsonResponse({
+            'message': response_text,
+            'audio': audio_b64,
+            'destination': destination,
+            'action': 'build_route'
+        })
+    
+    async def _extract_destination(self, text):
+        """
+        Использует AI для извлечения адреса из естественного языка.
+        """
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            # Fallback: простой парсинг
+            return self._simple_address_extraction(text)
+        
+        base_url = "https://api.deepseek.com"
+        model_name = "deepseek-chat"
+        if api_key.startswith("sk-or-v1"):
+            base_url = "https://openrouter.ai/api/v1"
+            model_name = "deepseek/deepseek-chat"
+        
+        from openai import AsyncOpenAI
+        client = AsyncOpenAI(api_key=api_key, base_url=base_url)
+        
+        try:
+            response = await client.chat.completions.create(
+                model=model_name,
+                messages=[
+                    {
+                        "role": "system",
+                        "content": "Ты помощник для извлечения адресов. Извлеки адрес назначения из запроса пользователя. Верни ТОЛЬКО адрес, без дополнительного текста. Если адрес не найден, верни 'NOT_FOUND'."
+                    },
+                    {
+                        "role": "user",
+                        "content": f"Запрос: {text}"
+                    }
+                ],
+                max_tokens=100
+            )
+            
+            result = response.choices[0].message.content.strip()
+            if result == 'NOT_FOUND' or not result:
+                return None
+            return result
+        except Exception as e:
+            logger.error(f"AI address extraction error: {e}")
+            return self._simple_address_extraction(text)
+    
+    def _simple_address_extraction(self, text):
+        """
+        Простое извлечение адреса по ключевым словам.
+        """
+        import re
+        
+        # Паттерны для поиска адресов
+        patterns = [
+            r'до\s+(.+?)(?:\s+дом\s+\d+|\s+\d+)?$',
+            r'на\s+(.+?)(?:\s+дом\s+\d+|\s+\d+)?$',
+            r'улиц[аы]\s+(.+?)(?:\s+дом\s+\d+|\s+\d+)?$',
+        ]
+        
+        text_lower = text.lower()
+        for pattern in patterns:
+            match = re.search(pattern, text_lower)
+            if match:
+                return match.group(1).strip()
+        
+        return None

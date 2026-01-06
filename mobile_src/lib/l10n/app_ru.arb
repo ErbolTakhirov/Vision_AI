@@ -1,0 +1,15 @@
+{
+  "appTitle": "Vision AI",
+  "startListening": "Нажмите, чтобы сказать",
+  "stopListening": "Стоп",
+  "processing": "Думаю...",
+  "navigatorMode": "Режим Навигатора",
+  "chatMode": "Режим Чата",
+  "settings": "Настройки",
+  "serverUrl": "Адрес сервера",
+  "save": "Сохранить",
+  "error": "Ошибка",
+  "welcome": "Привет! Я твой Vision AI.",
+  "cameraPermission": "Нужен доступ к камере",
+  "micPermission": "Нужен доступ к микрофону"
+}
