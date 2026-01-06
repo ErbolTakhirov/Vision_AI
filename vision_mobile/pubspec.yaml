@@ -24,6 +24,7 @@ dependencies:
   intl: ^0.20.2
   path_provider: ^2.1.2
   speech_to_text: ^7.0.0
+  porcupine_flutter: ^3.0.1
   
   # Navigation
   geolocator: ^13.0.2
@@ -44,3 +45,5 @@ dev_dependencies:
 flutter:
   uses-material-design: true
   generate: true # Enable l10n generation
+  assets:
+    - assets/words/way_finder_android.ppn

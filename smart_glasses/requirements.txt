@@ -1,0 +1,23 @@
+# AI & KaniTTS Dependencies
+torch
+numpy
+librosa
+soundfile
+scipy
+huggingface_hub
+transformers>=4.40.0
+# nene_toolkit[tts] # Раскомментируйте, если нужен NeMo backend, но обычно Kani работает на transformers
+accelerate
+
+# Vision
+ultralytics
+opencv-python
+
+# Audio Playback
+pygame
+sounddevice
+
+# Utils
+colorama
+python-dotenv
+requests

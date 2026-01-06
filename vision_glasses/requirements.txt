@@ -1,0 +1,9 @@
+pygame
+numpy
+soundfile
+scipy
+huggingface_hub
+transformers>=4.40.0
+torch
+accelerate
+# kani-tts (install from git if not available on pypi)

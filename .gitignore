@@ -12,8 +12,9 @@ __pycache__/
 *$py.class
 db.sqlite3
 media/
-static/
+staticfiles/
 .env
+*.sqlite3
 
 # Flutter
 vision_mobile/.dart_tool/
@@ -27,6 +28,10 @@ vision_mobile/ios/Flutter/Generated.xcconfig
 vision_mobile/ios/Flutter/flutter_export_environment.sh
 vision_mobile/android/local.properties
 vision_mobile/lib/secrets.dart
+vision_mobile/android/.gradle/
+vision_mobile/android/app/debug/
+vision_mobile/android/app/profile/
+vision_mobile/android/app/release/
 
 # Node / JS (if any)
 node_modules/
@@ -36,3 +41,12 @@ node_modules/
 *.pem
 secrets.dart
 .env.local
+*.ppn.backup
+
+# AI Artifacts & Temp
+.agent/
+*.md.backup
+temp/
+tmp/
+*.tmp
+.cache/

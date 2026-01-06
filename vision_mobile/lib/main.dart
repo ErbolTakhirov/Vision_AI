@@ -11,7 +11,8 @@ import 'package:path_provider/path_provider.dart';
 
 import 'theme/app_theme.dart';
 import 'services/vision_api.dart';
-import 'services/wake_word_service.dart';
+// import 'services/wake_word_service.dart'; // Old service
+import 'services/porcupine_service.dart';
 import 'services/navigation_service.dart';
 import 'screens/chat_screen.dart';
 import 'screens/vision_mode.dart';
@@ -42,7 +43,7 @@ class _VisionAppState extends State<VisionApp> {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Vision AI Pro',
+      title: 'WayFinder',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       locale: _locale,
@@ -73,12 +74,13 @@ class MainNavScreen extends StatefulWidget {
 class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserver {
   // Services
   final _api = VisionApiService();
-  final _wakeWordService = WakeWordService();
+  // final _wakeWordService = WakeWordService();
+  late PorcupineWakeWordService _porcupineService;
   final _navigationService = NavigationService();
   CameraController? _cameraController;
   final _audioRecorder = AudioRecorder();
   final _audioPlayer = AudioPlayer();
-  bool _wakeWordEnabled = true;
+  bool _wakeWordEnabled = false;
   bool _isNavigating = false;
 
   // State
@@ -98,15 +100,16 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     
-    // Resume listening after TTS finishes
-    _audioPlayer.onPlayerComplete.listen((event) {
-      if (_wakeWordEnabled && !_isRecording) {
-        _wakeWordService.startListening();
-      }
-    });
+    // Resume listening listener removed for manual control stability
+    // _audioPlayer.onPlayerComplete.listen((event) { ... });
 
     _initHardware();
     _addInitialMessage();
+    // Init Porcupine
+    _porcupineService = PorcupineWakeWordService(
+      onWakeWordDetected: _handlePorcupineWake,
+      onError: (err) => print("Porcupine Error: $err")
+    );
     _initWakeWord();
   }
 
@@ -116,7 +119,7 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
     _cameraController?.dispose();
     _audioRecorder.dispose();
     _audioPlayer.dispose();
-    _wakeWordService.dispose();
+    _porcupineService.dispose();
     super.dispose();
   }
 
@@ -154,7 +157,7 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
 
   void _addInitialMessage() {
      _messages.add(ChatMessage(
-       text: "Ready to help. Press the mic to speak or use Vison Mode.", 
+       text: "Я WayFinder. Нажмите кнопку или скажите 'WayFinder'.", 
        isUser: false, 
        timestamp: DateTime.now()
      ));
@@ -203,41 +206,18 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
   }
 
   Future<void> _initWakeWord() async {
-    final initialized = await _wakeWordService.initialize();
-    if (initialized && _wakeWordEnabled) {
-      _wakeWordService.onWakeWordDetected = _handleWakeWord;
-      await _wakeWordService.startListening();
-      print('✅ Wake word detection started');
-    } else {
-      print('❌ Wake word detection failed to initialize');
+    await _porcupineService.initialize();
+    if (_wakeWordEnabled) {
+      await _porcupineService.startListening();
     }
   }
 
-  Future<void> _handleWakeWord(String command) async {
-    if (_isProcessing) return;
-    
-    print('🎤 Wake word detected! Command: $command');
-    
-    // Normalize command logic
-    String queryText = command;
-    if (command.isEmpty || command == "что передо мной?") {
-      queryText = "Что передо мной?";
-    }
-
-    // Add user message
-    setState(() {
-      _messages.add(ChatMessage(
-        text: "Эй Вижион, $queryText", 
-        isUser: true, 
-        timestamp: DateTime.now()
-      ));
-    });
-    
-    // Automatically capture and analyze
-    if (_isNavigationRequest(queryText)) {
-      await _handleNavigationRequest(text: queryText);
-    } else {
-      await _processRequest(text: queryText, mode: 'chat');
+  void _handlePorcupineWake() async {
+    print("⚡ WAYFINDER DETECTED! Starting recording...");
+    if (!_isRecording && !_isProcessing) {
+      await _porcupineService.stopListening();
+      // Start recording user query
+      _handleVoiceButton();
     }
   }
 
@@ -245,9 +225,9 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
     setState(() {
       _wakeWordEnabled = !_wakeWordEnabled;
       if (_wakeWordEnabled) {
-        _wakeWordService.startListening();
+        _porcupineService.startListening();
       } else {
-        _wakeWordService.stopListening();
+        _porcupineService.stopListening();
       }
     });
   }
@@ -321,7 +301,7 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
       // Play audio response
       if (audioB64 != null) {
         // Pause listening so AI doesn't hear itself
-        _wakeWordService.stopListening();
+        await _porcupineService.stopListening();
         
         final bytes = base64Decode(audioB64);
         final dir = await getTemporaryDirectory();
@@ -443,13 +423,20 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
       // Play Audio
       if (audioB64 != null) {
          // Pause listening so AI doesn't hear itself
-         _wakeWordService.stopListening();
+         await _porcupineService.stopListening();
          
          final bytes = base64Decode(audioB64);
          final dir = await getTemporaryDirectory();
          final file = File('${dir.path}/response.mp3');
          await file.writeAsBytes(bytes);
          await _audioPlayer.play(DeviceFileSource(file.path));
+      }
+      
+      // Wait for TTS to finish before listening again
+      if (audioB64 != null) {
+        try {
+           await _audioPlayer.onPlayerComplete.first.timeout(const Duration(seconds: 30));
+        } catch (_) {}
       }
 
     } catch (e) {
@@ -458,6 +445,9 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
       });
     } finally {
       setState(() { _isProcessing = false; });
+      if (_wakeWordEnabled) {
+        _porcupineService.startListening();
+      }
     }
   }
 
@@ -543,7 +533,7 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
           duration: const Duration(milliseconds: 300),
           height: 70, width: 70,
           decoration: BoxDecoration(
-            color: _isRecording ? Colors.redAccent : Theme.of(context).primaryColor,
+            color: _isRecording ? const Color(0xFFFF2E63) : const Color(0xFF00D4FF),
             shape: BoxShape.circle,
             boxShadow: [
               BoxShadow(
@@ -558,25 +548,25 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
       floatingActionButtonLocation: FloatingActionButtonLocation.centerDocked,
 
       bottomNavigationBar: BottomAppBar(
-        color: const Color(0xFF1E1E24),
+        color: const Color(0xFF121426),
         shape: const CircularNotchedRectangle(),
         notchMargin: 8.0,
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
           children: [
             IconButton(
-              icon: Icon(Icons.chat_bubble_outline, color: _currentIndex == 0 ? Colors.white : Colors.grey),
+              icon: Icon(Icons.chat_bubble_outline, color: _currentIndex == 0 ? const Color(0xFF00D4FF) : Colors.white38),
               onPressed: () => setState(() => _currentIndex = 0),
               tooltip: l10n.chatMode,
             ),
             const SizedBox(width: 20), // Spacer for FAB
             IconButton(
-              icon: Icon(Icons.remove_red_eye_outlined, color: _currentIndex == 1 ? const Color(0xFF00E676) : Colors.grey),
+              icon: Icon(Icons.remove_red_eye_outlined, color: _currentIndex == 1 ? const Color(0xFF00D4FF) : Colors.white38),
               onPressed: () => setState(() => _currentIndex = 1),
               tooltip: l10n.navigatorMode,
             ),
              IconButton(
-              icon: Icon(Icons.settings_outlined, color: _currentIndex == 2 ? Colors.white : Colors.grey),
+              icon: Icon(Icons.settings_outlined, color: _currentIndex == 2 ? const Color(0xFF00D4FF) : Colors.white38),
               onPressed: () => setState(() => _currentIndex = 2),
               tooltip: l10n.settings,
             ),
@@ -633,10 +623,10 @@ class _MainNavScreenState extends State<MainNavScreen> with WidgetsBindingObserv
            GlassContainer(
              child: SwitchListTile(
                secondary: const Icon(Icons.mic_none),
-               title: const Text("\"Hey Vision\" Wake Word"),
+               title: const Text("\"WayFinder\" Activation"),
                subtitle: Text(_wakeWordEnabled 
-                 ? "Always listening for voice commands" 
-                 : "Wake word detection disabled"),
+                 ? "Listening for 'WayFinder'..." 
+                 : "Voice activation disabled"),
                value: _wakeWordEnabled,
                onChanged: (value) => _toggleWakeWord(),
                activeColor: const Color(0xFF00E676),

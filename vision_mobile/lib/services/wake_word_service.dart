@@ -28,7 +28,7 @@ class WakeWordService {
           _restartListening();
         }
       },
-      debugLogging: true, 
+      debugLogging: false, 
     );
   }
 
@@ -36,7 +36,7 @@ class WakeWordService {
     if (!_isListening || _isRestarting) return;
     
     _isRestarting = true;
-    Future.delayed(const Duration(milliseconds: 500), () {
+    Future.delayed(const Duration(milliseconds: 2000), () {
       _isRestarting = false;
       _listenContinuously();
     });
@@ -105,7 +105,7 @@ class WakeWordService {
       },
       localeId: selectedLocale.localeId, 
       listenFor: const Duration(seconds: 60), // Try max duration
-      pauseFor: const Duration(seconds: 5),
+      pauseFor: const Duration(seconds: 30),
       partialResults: true,
       listenMode: stt.ListenMode.search, // Better for commands
       cancelOnError: false,

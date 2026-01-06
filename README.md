@@ -1,128 +1,189 @@
-# Vision AI Assistant 👁️
+# WayFinder
 
-A powerful, locally-hosted **Telegram Mini App** designed to assist visually impaired users. This project leverages state-of-the-art **Open Source AI models** to provide a real-time "Second Sight" experience directly from a smartphone.
+**AI-powered navigation and vision assistant for mobile devices**
 
-## ✨ Features
+WayFinder is a real-time AI assistant that combines computer vision, voice interaction, and intelligent navigation to help users understand their surroundings and navigate efficiently.
 
-*   **Hands-Free Voice Control**: Activate the assistant by saying **"Hey Vision"** or **"Vision"**. No need to press buttons.
-*   **Smart Vision (BLIP + LLM)**: Analyzes photos and answers questions about them in natural language (e.g., "What is in front of me?", "Describe the scene").
-*   **Navigator Mode**: A toggleable mode that continuously scans the environment (every 3.5s) and announces detected objects (using fast YOLOv8) to help with navigation.
-*   **Reading Mode (OCR)**: Automatically detects and reads text from images (documents, signs, screens) using **EasyOCR**.
-*   **Local Processing**: Most AI tasks (Speech-to-Text, Object Detection, Image Captioning) run **locally** on the host machine for privacy and speed.
-*   **Natural Voice (TTS)**: High-quality Russian voice synthesis using MS Edge TTS.
-*   **Memory (RAG Lite)**: The assistant remembers user context and conversation history for more natural interactions.
-*   **Sound Design**: Audio cues (beeps, haptic feedback) for actions like listening, analyzing, or errors.
+## Features
 
-## 🛠️ Tech Stack
+- 🎤 **Voice-Activated Assistant** - Wake word detection ("WayFinder") for hands-free interaction
+- 👁️ **Real-Time Vision Analysis** - Object detection and scene understanding using YOLO and BLIP
+- 🗺️ **Smart Navigation** - Turn-by-turn directions with voice guidance
+- 🧠 **Context-Aware AI** - Personalized responses based on user profile and conversation history
+- 🌐 **Multilingual Support** - English, Russian, and Kyrgyz languages
+- 🎨 **Modern UI** - Sleek cyberpunk-inspired interface with dark mode
 
-*   **Backend**: Django (Python)
-*   **Frontend**: HTML5, CSS3, Vanilla JS (Telegram Web SDK)
-*   **AI Models**:
-    *   **LLM**: DeepSeek / OpenRouter (via OpenAI API compatibility)
-    *   **Vision**: BLIP (Salesforce)
-    *   **Object Detection**: YOLOv8 (Ultralytics)
-    *   **OCR**: EasyOCR
-    *   **Speech-to-Text**: Faster-Whisper (Local)
-    *   **Text-to-Speech**: Edge-TTS
-*   **Database**: SQLite (default) / PostgreSQL compatible
+## Tech Stack
 
-## 🚀 Installation & Setup
+### Backend (Django)
+- **Framework**: Django 6.0
+- **AI Models**: 
+  - Whisper (Speech-to-Text)
+  - BLIP (Image Captioning)
+  - YOLO (Object Detection)
+  - DeepSeek/GPT (Language Model)
+- **TTS**: Edge TTS / Kani TTS
+- **Database**: PostgreSQL / SQLite
+
+### Mobile (Flutter)
+- **Framework**: Flutter 3.x
+- **Wake Word**: Porcupine (Picovoice)
+- **Navigation**: Geolocator, OpenRouteService
+- **UI**: Material Design 3
+
+## Installation
 
 ### Prerequisites
-*   Python 3.8+
-*   CUDA-capable GPU (Recommended for faster inference)
-*   Telegram Bot Token
+- Python 3.10+
+- Flutter 3.0+
+- PostgreSQL (optional, SQLite works for dev)
 
-### 1. Clone the repository
+### Backend Setup
+
+1. Clone the repository:
 ```bash
-git clone https://github.com/your-username/vision-ai-assistant.git
-cd vision-ai-assistant
+git clone https://github.com/yourusername/wayfinder.git
+cd wayfinder
 ```
 
-### 2. Create a Virtual Environment
+2. Create virtual environment:
 ```bash
 python -m venv venv
-# Windows
-venv\Scripts\activate
-# Linux/Mac
-source venv/bin/activate
+source venv/bin/activate  # On Windows: venv\Scripts\activate
 ```
 
-### 3. Install Dependencies
+3. Install dependencies:
 ```bash
 pip install -r requirements.txt
-# For GPU support (Recommended):
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu118
 ```
 
-### 4. Configure Environment
-Create a `.env` file in the root directory:
-```ini
-SECRET_KEY=your_django_secret_key
-DEBUG=True
-ALLOWED_HOSTS=127.0.0.1,localhost,your-ngrok-domain.ngrok-free.dev
-
-# Telegram Settings
-TELEGRAM_BOT_TOKEN=your_telegram_bot_token
-WEBAPP_URL=https://your-ngrok-domain.ngrok-free.dev
-
-# AI Provider API Key (DeepSeek or OpenRouter)
-OPENAI_API_KEY=your_api_key
-```
-
-### 5. Run Migrations
+4. Configure environment variables:
 ```bash
-python manage.py makemigrations
+cp .env.example .env
+# Edit .env and add your API keys
+```
+
+5. Run migrations:
+```bash
 python manage.py migrate
 ```
 
-### 6. Run the Server
+6. Start the server:
 ```bash
 python manage.py runserver
 ```
 
-## 📱 Running the Mini App
+### Mobile Setup
 
-1.  Expose your local server to the internet (required for Telegram Web Apps) using **ngrok**:
-    ```bash
-    ngrok http 8000
-    ```
-2.  Update `WEBAPP_URL` in `.env` with your new ngrok HTTPS URL.
-3.  Open your Telegram Bot (`bot.py` or configured via BotFather) and launch the Web App.
-4.  **Grant Microphone / Camera permissions** in the browser when prompted.
+1. Navigate to mobile directory:
+```bash
+cd vision_mobile
+```
 
-## 🕹️ Usage
+2. Install Flutter dependencies:
+```bash
+flutter pub get
+```
 
-*   **Chat Mode**: Say "Hey Vision, what do you see?" or press the button manually.
-*   **Navigator Mode**: Flip the toggle at the top right. Point your phone, and it will list objects around you.
-*   **Text Reading**: Just show a document and ask "Read this text".
+3. Create secrets file:
+```bash
+# Create lib/secrets.dart with your API keys
+# See lib/secrets.dart.example for template
+```
 
-## 📱 Native Mobile App (Flutter)
+4. Run the app:
+```bash
+flutter run
+```
 
-The project includes a native Flutter application (`vision_mobile`) for better performance and background capabilities.
+## Configuration
 
-### Setup
+### Required API Keys
 
-1.  **Navigate to the mobile directory**:
-    ```bash
-    cd vision_mobile
-    ```
-2.  **Create `lib/secrets.dart`**:
-    Since API keys are not committed to git, you must create this file manually:
-    ```dart
-    class Secrets {
-      // Get a free key from https://openrouteservice.org/
-      static const String openRouteServiceApiKey = 'YOUR_ORS_API_KEY';
-    }
-    ```
-3.  **Install Dependencies**:
-    ```bash
-    flutter pub get
-    ```
-4.  **Run**:
-    ```bash
-    flutter run
-    ```
+- **OPENAI_API_KEY**: For AI language model (DeepSeek or OpenAI)
+- **Picovoice Access Key**: For wake word detection (get free at picovoice.ai)
+- **OpenRouteService API Key**: For navigation (optional)
 
+Add these to:
+- Backend: `.env` file
+- Mobile: `vision_mobile/lib/secrets.dart`
 
+### Wake Word Setup
 
+The custom "WayFinder" wake word model is included in `vision_mobile/assets/words/`. To create your own:
+
+1. Visit [Picovoice Console](https://console.picovoice.ai/)
+2. Create a new keyword
+3. Download the `.ppn` file for Android
+4. Replace `way_finder_android.ppn` in assets
+
+## Usage
+
+### Voice Commands
+
+After saying "WayFinder":
+- "What's in front of me?" - Analyze current camera view
+- "Where am I?" - Get current location
+- "Navigate to [place]" - Start turn-by-turn navigation
+- "What do you see?" - Describe the scene
+
+### Manual Mode
+
+Tap the microphone button to record your question without using the wake word.
+
+## Project Structure
+
+```
+wayfinder/
+├── core/                 # Django project settings
+├── vision/              # Main Django app
+│   ├── cag.py          # Context-Affect-Guidance system
+│   ├── services.py     # AI service layer
+│   ├── tts_engine.py   # Text-to-speech
+│   └── views.py        # API endpoints
+├── vision_mobile/       # Flutter mobile app
+│   ├── lib/
+│   │   ├── services/   # API clients, wake word
+│   │   ├── screens/    # UI screens
+│   │   └── theme/      # App styling
+│   └── assets/         # Wake word models
+└── requirements.txt
+```
+
+## Development
+
+### Running with ngrok (for mobile testing)
+
+```bash
+# Terminal 1: Django server
+python manage.py runserver
+
+# Terminal 2: ngrok tunnel
+ngrok http 8000
+
+# Update WEBAPP_URL in .env with ngrok URL
+```
+
+### Hot Reload
+
+- **Backend**: Django auto-reloads on file changes
+- **Mobile**: Press `r` in Flutter terminal for hot reload, `R` for hot restart
+
+## Contributing
+
+Contributions are welcome! Please feel free to submit a Pull Request.
+
+## License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## Acknowledgments
+
+- Picovoice for wake word detection
+- OpenAI/DeepSeek for language models
+- Hugging Face for vision models
+- OpenRouteService for navigation
+
+## Support
+
+For issues and questions, please open an issue on GitHub.

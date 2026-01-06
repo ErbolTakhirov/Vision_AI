@@ -12,6 +12,7 @@ import logging
 import easyocr
 import numpy as np
 from ultralytics import YOLO
+from asgiref.sync import sync_to_async
 
 logger = logging.getLogger(__name__)
 
@@ -146,16 +147,39 @@ def detect_objects_local(image_bytes):
         print(f"YOLO Error: {e}")
         return []
 
+from .cag import CAGSystem
+from .tts_engine import TTSBrain
+
+# Lazy Init Kani (можно перенести в apps.py для автозагрузки)
+# TTSBrain.init_kani() 
+
 async def generate_ai_response_async(user_text, visual_context=None, user_obj=None, ocr_context=None):
     """
-    Генерирует ответ используя DeepSeek/OpenRouter API.
-    Поддерживает сохранение фактов (Memory).
+    Генерирует ответ используя DeepSeek/OpenRouter API + CAG System.
     """
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         return "Ошибка: Не найден API ключ (OPENAI_API_KEY)."
 
-    # Определяем endpoint и модель
+    # 1. CAG: Обновляем состояние и память
+    cag = None
+    if user_obj:
+        cag = CAGSystem(user_obj)
+        # Оборачиваем синхронный вызов DB в async
+        await sync_to_async(cag.update_state)(user_text)
+
+    # 2. CAG: Строим умный промпт
+    if cag:
+        system_prompt = cag.build_system_prompt(visual_context)
+    else:
+        system_prompt = "Ты голосовой помощник. Отвечай кратко."
+
+    # OCR Context add
+    user_prompt = user_text
+    if ocr_context:
+        user_prompt += f"\n\n(Текст перед глазами: {ocr_context})"
+
+    # 3. LLM Call
     base_url = "https://api.deepseek.com"
     model_name = "deepseek-chat"
     if api_key.startswith("sk-or-v1"):
@@ -163,73 +187,31 @@ async def generate_ai_response_async(user_text, visual_context=None, user_obj=No
         model_name = "deepseek/deepseek-chat"
 
     client = AsyncOpenAI(api_key=api_key, base_url=base_url)
-
-    # Формируем промпт с учетом памяти
-    system_prompt = "Ты голосовой помощник для незрячих. Твои ответы должны быть лаконичными, теплыми и полезными. Отвечай на русском языке."
-    
-    # Добавляем факты из памяти пользователя
-    if user_obj and user_obj.facts:
-        facts_str = ", ".join([f"{k}: {v}" for k,v in user_obj.facts.items()])
-        system_prompt += f"\n\nПамятка (известные факты): {facts_str}"
-
-    prompt = user_text
-    
-    # Добавляем визуальный контекст
-    context_parts = []
-    if visual_context:
-        context_parts.append(f"Визуально (BLIP): {visual_context}")
-    if ocr_context:
-        context_parts.append(f"Текст на изображении (OCR): {ocr_context}")
-        
-    if context_parts:
-        prompt = f"Контекст изображения:\n" + "\n".join(context_parts) + f"\n\nВопрос: {user_text}"
     
     messages = [
         {"role": "system", "content": system_prompt},
-        {"role": "user", "content": prompt}
+        {"role": "user", "content": user_prompt}
     ]
-    
-    # Проверка на намерение "Запомни" (простая эвристика)
-    # Если бот поймет, что нужно запомнить, он сделает это.
-    # Но для надежности добавим инструкцию в промпт или обработаем отдельно.
-    # Пусть пока просто отвечает, а "запоминание" сделаем через ключевые слова.
-    if user_text.lower().startswith("запомни") and user_obj:
-        # Пытаемся извлечь факт. Для простоты сохраняем raw текст пока, 
-        # или просим модель выделить JSON (сложно для текстового чата).
-        # Простой вариант:
-        user_obj.facts['last_memory'] = user_text
-        # В реальности тут нужен NLP парсер "entity -> description".
-        # Пока просто скажем пользователю ок.
-        pass
 
     try:
         response = await client.chat.completions.create(
             model=model_name,
             messages=messages,
-            max_tokens=500
+            max_tokens=300
         )
         answer = response.choices[0].message.content
-        
-        # Пост-процессинг для сохранения памяти через спец-теги, если модель умная
-        # (Пропустим для MVP)
-        
         return answer
     except Exception as e:
         logger.error(f"DeepSeek API Error: {e}")
         return f"Ошибка API ИИ: {e}"
 
-
 async def text_to_speech_async(text):
-    communicate = edge_tts.Communicate(text, "ru-RU-SvetlanaNeural")
-    try:
-        audio_data = b""
-        async for chunk in communicate.stream():
-            if chunk["type"] == "audio":
-                audio_data += chunk["data"]
-        return audio_data
-    except Exception as e:
-        logger.error(f"TTS Error: {e}")
-        return None
+    # Пытаемся инициализировать Kani, если еще не пробовали
+    if TTSBrain._kani_model is None and TTSBrain._use_kani is False:
+         # Попытка разовой инициализации (лучше вынести в apps.py)
+         pass 
+         
+    return await TTSBrain.speak(text)
 
 def get_ai_response_sync(text, visual_context=None):
     return asyncio.run(generate_ai_response_async(text, visual_context))
