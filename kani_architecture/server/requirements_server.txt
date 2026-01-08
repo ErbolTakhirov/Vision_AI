@@ -1,0 +1,8 @@
+fastapi==0.109.2
+uvicorn==0.27.1
+python-multipart==0.0.9
+torch>=2.0.0
+torchaudio>=2.0.0
+kani-tts>=0.1.0
+soundfile
+numpy

@@ -5,11 +5,9 @@ class VisionConfig(AppConfig):
     name = 'vision'
 
     def ready(self):
-        import threading
-        from .tts_engine import TTSBrain
-        
-        def load_models():
-            print("🚀 Starting background model loading (KaniTTS)...")
-            TTSBrain.init_kani()
-            
-        threading.Thread(target=load_models, daemon=True).start()
+        # Avoid running in reloader thread to prevent duplicates (simple check)
+        import os
+        if os.environ.get('RUN_MAIN') == 'true':
+            from .wake_word import WakeWordListener
+            # WakeWordListener.start()
+            pass

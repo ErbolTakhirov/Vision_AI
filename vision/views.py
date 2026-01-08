@@ -153,72 +153,144 @@ from asgiref.sync import sync_to_async
 @method_decorator(csrf_exempt, name='dispatch')
 class SmartAnalyzeView(View):
     async def post(self, request, *args, **kwargs):
-        # 1. Получаем данные
+        import asyncio
+        
+        # 1. Проверка аутентификации (опционально для совместимости)
+        user = None
+        if request.user.is_authenticated:
+            user = request.user
+            # Проверка лимитов
+            if not await sync_to_async(user.can_make_request)():
+                return JsonResponse({
+                    'error': 'Daily limit reached',
+                    'subscription_type': user.subscription_type,
+                    'upgrade_message': 'Upgrade to Premium for unlimited requests'
+                }, status=429)
+        
+        # 2. Получаем данные
         image_file = request.FILES.get('image')
         audio_file = request.FILES.get('audio')
         text_input = request.POST.get('text', '')
         user_id = request.POST.get('user_id', 'anonymous')
         mode = request.POST.get('mode', 'chat') # 'chat' or 'navigator'
 
-        # 2. Получаем пользователя
+        # 3. Получаем пользователя (для обратной совместимости с Telegram)
         user_tuple = await sync_to_async(VisionUser.objects.get_or_create)(telegram_id=user_id)
-        user = user_tuple[0]
+        vision_user = user_tuple[0]
 
-        # 3. Обработка аудио
+        # Подготовка тасков
+        stt_task = None
+        vision_task = None
+        image_bytes = None
+
+        # Запускаем STT
         if audio_file:
-            transcript = await sync_to_async(speech_to_text)(audio_file)
-            if transcript:
-                text_input = f"{text_input} {transcript}".strip()
+            # Важно: если audio_file это InMemoryUploadedFile, передача его в другой поток может быть tricky,
+            # но faster_whisper обычно принимает путь или file-like.
+            # Для надежности читаем в BytesIO если это не путь
+            stt_task = sync_to_async(speech_to_text)(audio_file)
 
-        # Если режим навигатора, делаем быстрый детект
-        if mode == 'navigator' and image_file:
-            image_bytes = image_file.read()
-            # Fast YOLO
-            objects = await sync_to_async(detect_objects_local)(image_bytes)
-            if objects:
-                response_text = ", ".join(objects)
-            else:
-                response_text = "" # Silence if nothing found
-            
-            # Вернем без сохранения в историю
-            return JsonResponse({'message': response_text, 'audio': None})
-            # Навигатор обычно озвучивается на клиенте или короткими TTS, 
-            # но для скорости вернем текст, фронт может озвучить сам или запросить TTS.
-            
-        # 4. Обработка Vision (BLIP + OCR)
-        visual_description = None
-        ocr_text = None
-        
+        # Подготовка изображения (Resize)
         if image_file:
             image_bytes = image_file.read()
-            
-            # Запускаем BLIP всегда
-            visual_description = await sync_to_async(analyze_image_local)(image_bytes)
-            
-            # Запускаем OCR, если в запросе есть "читай" или "текст" или если BLIP мал
-            # Или просто всегда для надежности (чуть медленнее)
-            if any(w in text_input.lower() for w in ['читай', 'прочти', 'текст', 'написано', 'цифры']):
-                 ocr_text = await sync_to_async(read_text_local)(image_bytes)
+            # Оптимизация размера ПЕРЕД отправкой в модели (снижаем нагрузку на BLIP/OCR)
+            # Сделаем resize тут, в памяти
+            def optimize_image(img_data):
+                nparr = np.frombuffer(img_data, np.uint8)
+                img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+                if img is None: return img_data
+                
+                # Max dimension 640 for speed
+                max_dim = 640
+                h, w = img.shape[:2]
+                if max(h, w) > max_dim:
+                    scale = max_dim / max(h, w)
+                    img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+                    # Encode back to bytes
+                    _, encoded_img = cv2.imencode('.jpg', img, [int(cv2.IMWRITE_JPEG_QUALITY), 85])
+                    return encoded_img.tobytes()
+                return img_data
 
-            if not text_input:
-                text_input = "Что изображено?"
+            # Запускаем оптимизацию и Vision параллельно
+            # Но Vision требует байты. Лучше сначала оптимизировать (быстро), потом Vision.
+            # optimize_image - CPU bound, sync.
+            image_bytes = await sync_to_async(optimize_image)(image_bytes)
+
+            if mode == 'navigator':
+                 # Fast YOLO only
+                 # Мы можем запустить это сразу
+                 vision_task = sync_to_async(detect_objects_local)(image_bytes)
+            else:
+                 # BLIP
+                 vision_task = sync_to_async(analyze_image_local)(image_bytes)
+
+        # Выполняем параллельно STT и Vision
+        tasks = []
+        if stt_task: tasks.append(stt_task) # index 0 if exists
+        if vision_task: tasks.append(vision_task) # index 0 or 1
+
+        results = await asyncio.gather(*tasks)
+
+        # Разбираем результаты
+        transcript = None
+        visual_result = None
+        
+        current_res_idx = 0
+        if stt_task:
+            transcript = results[current_res_idx]
+            print(f"🎤 DEBUG TRANCRIPT: '{transcript}' (Type: {type(transcript)})")
+            current_res_idx += 1
+        if vision_task:
+            visual_result = results[current_res_idx]
+        
+        # Обновляем текст
+        if transcript:
+            text_input = f"{text_input} {transcript}".strip()
+
+        # Если режим навигатора - возвращаем быстрый ответ
+        if mode == 'navigator':
+            objects = visual_result if visual_result else []
+            if objects:
+                 response_text = ", ".join(objects)
+            else:
+                 response_text = ""
+            return JsonResponse({'message': response_text, 'audio': None})
+
+        # Режим чата
+        visual_description = visual_result
+        ocr_text = None
+
+        # Теперь, имея полный текст, решаем про OCR
+        # OCR все еще может быть долгой, но она нужна только по запросу
+        if image_bytes and any(w in text_input.lower() for w in ['читай', 'прочти', 'текст', 'написано', 'цифры']):
+             ocr_text = await sync_to_async(read_text_local)(image_bytes)
 
         if not text_input:
-             return JsonResponse({'message': 'Не удалось распознать запрос.', 'audio': None})
-             
-        # Сохраняем запрос пользователя
-        await sync_to_async(user.add_message)("user", text_input)
+             # Если текста нет, но есть картинка -> "Что изображено?"
+             if visual_description:
+                 text_input = "Что изображено?"
+             else:
+                 return JsonResponse({'message': 'Не удалось распознать запрос.', 'audio': None})
 
-        # 5. LLM
+        # Сохраняем запрос
+        if vision_user:
+            await sync_to_async(vision_user.add_message)("user", text_input)
+
+        # 5. LLM - передаем vision_user только если он существует
         response_text = await generate_ai_response_async(
             text_input, 
             visual_context=visual_description, 
-            user_obj=user,
+            user_obj=vision_user if vision_user else None,
             ocr_context=ocr_text
         )
 
         # Сохраняем ответ
-        await sync_to_async(user.add_message)("assistant", response_text)
+        if vision_user:
+            await sync_to_async(vision_user.add_message)("assistant", response_text)
+        
+        # Увеличиваем счетчик для аутентифицированных пользователей
+        if user:
+            await sync_to_async(user.increment_request_count)()
 
         # 6. TTS
         audio_content = await text_to_speech_async(response_text)

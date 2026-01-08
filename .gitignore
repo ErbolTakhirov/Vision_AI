@@ -16,22 +16,25 @@ staticfiles/
 .env
 *.sqlite3
 
-# Flutter
-vision_mobile/.dart_tool/
-vision_mobile/.idea/
-vision_mobile/.pub/
-vision_mobile/build/
-vision_mobile/.flutter-plugins
-vision_mobile/.flutter-plugins-dependencies
-vision_mobile/.packages
-vision_mobile/ios/Flutter/Generated.xcconfig
-vision_mobile/ios/Flutter/flutter_export_environment.sh
-vision_mobile/android/local.properties
-vision_mobile/lib/secrets.dart
-vision_mobile/android/.gradle/
-vision_mobile/android/app/debug/
-vision_mobile/android/app/profile/
-vision_mobile/android/app/release/
+# Flutter (WayFinder & Legacy vision_mobile)
+WayFinder/.dart_tool/
+WayFinder/.idea/
+WayFinder/.pub/
+WayFinder/build/
+WayFinder/.flutter-plugins
+WayFinder/.flutter-plugins-dependencies
+WayFinder/.packages
+WayFinder/ios/Flutter/Generated.xcconfig
+WayFinder/ios/Flutter/flutter_export_environment.sh
+WayFinder/android/local.properties
+WayFinder/lib/secrets.dart
+WayFinder/android/.gradle/
+WayFinder/android/app/debug/
+WayFinder/android/app/profile/
+WayFinder/android/app/release/
+WayFinder/android/app/google-services.json
+
+vision_mobile/
 
 # Node / JS (if any)
 node_modules/
@@ -42,6 +45,8 @@ node_modules/
 secrets.dart
 .env.local
 *.ppn.backup
+tunnels.json
+google-services.json
 
 # AI Artifacts & Temp
 .agent/
@@ -51,6 +56,8 @@ tmp/
 *.tmp
 .cache/
 
-# Markdown files (except main README)
+# Markdown files (keeping user preference, but generally not recommended for public repos unless they are just notes)
 *.md
 !README.md
+!README_MOBILE.md
+!README_SMART_GLASSES.md

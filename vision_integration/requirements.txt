@@ -1,0 +1,15 @@
+# --- Core AI Dependencies ---
+# Примечание: PyTorch лучше устанавливать вручную под конкретную версию CUDA
+# См. INSTALL.md
+torch>=2.0.0
+torchaudio>=2.0.0
+numpy
+
+# --- KaniTTS Engine ---
+# https://github.com/nineninesix-ai/kani-tts
+kani-tts>=0.1.0
+soundfile
+
+# --- Audio Playback ---
+# pygame используется для кроссплатформенного воспроизведения аудио без блокировки
+pygame>=2.5.0
