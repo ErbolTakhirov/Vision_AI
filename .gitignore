@@ -34,6 +34,15 @@ WayFinder/android/app/profile/
 WayFinder/android/app/release/
 WayFinder/android/app/google-services.json
 
+# iOS Specific Secrets
+GoogleService-Info.plist
+WayFinder/ios/Runner/GoogleService-Info.plist
+
+# Media & Voice (TTS Cache)
+tts/
+*.wav
+*.mp3
+
 # Legacy / Temp
 vision_mobile/
 temp/
@@ -42,13 +51,15 @@ tmp/
 .cache/
 *.md.backup
 
-# AI & Dev Notes (Keep project clean for public)
+# AI & Dev Notes
 PROJECT_STATUS_REPORT.md
 AI_SYSTEM_DOCS.txt
 GOOGLE_SIGNIN_FIX.txt
 QUICK_START_WAKE_WORD.txt
 INSANE_FEATURES.txt
 PREMIUM_FEATURES.txt
+WORKPLAN_TRACKER.md
+BUDGET_TRACKER.md
 .agent/
 
 # Secrets & Keys
